@@ -14,9 +14,21 @@ import com.android.volley.toolbox.Volley;
 import com.example.mascotas.R;
 import com.google.android.material.button.MaterialButton;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+import android.content.SharedPreferences;
+import android.content.Context;
+import com.google.android.material.button.MaterialButton;
+
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Esta clase sirve para que el usuario pueda iniciar sesión en la aplicación.
+ * Conecta con la base de datos para comprobar si el DNI y la contraseña existen.
+ *
+ * @author Alex y Hector
+ */
 public class LoginController extends AppCompatActivity {
 
     private EditText etDni, etPassword;
@@ -28,7 +40,7 @@ public class LoginController extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        etDni = findViewById(R.id.etUsuario); // Usamos el campo etUsuario para el DNI
+        etDni = findViewById(R.id.etUsuario);
         etPassword = findViewById(R.id.etPassword);
         btnAccionLogin = findViewById(R.id.btnAccionLogin);
         btnIrARegistro = findViewById(R.id.btnIrARegistro);
@@ -49,10 +61,27 @@ public class LoginController extends AppCompatActivity {
         StringRequest stringRequest = new StringRequest(Request.Method.POST, URL_LOGIN,
                 response -> {
                     if (!response.equals("error")) {
-                        Intent intent = new Intent(LoginController.this, MainMenuController.class);
-                        intent.putExtra("usuario", response); // El PHP devuelve el nombre del usuario
-                        startActivity(intent);
-                        finish();
+                        try {
+                            JSONObject jsonObject = new JSONObject(response);
+                            String nombre = jsonObject.getString("nombre");
+                            String dniUsuario = jsonObject.getString("dni");
+                            String telefonoUsuario = jsonObject.getString("telefono");
+
+                            SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+                            SharedPreferences.Editor editor = pref.edit();
+                            editor.putString("nombre", nombre);
+                            editor.putString("dni", dniUsuario);
+                            editor.putString("telefono", telefonoUsuario);
+                            editor.apply();
+
+                            Intent intent = new Intent(LoginController.this, MainMenuController.class);
+                            intent.putExtra("usuario", nombre);
+                            startActivity(intent);
+                            finish();
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                            Toast.makeText(LoginController.this, "Error procesando datos", Toast.LENGTH_SHORT).show();
+                        }
                     } else {
                         Toast.makeText(LoginController.this, "DNI o contraseña incorrectos", Toast.LENGTH_SHORT).show();
                     }

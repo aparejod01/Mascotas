@@ -29,6 +29,12 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Pantalla que permite añadir a un perro a la guardería.
+ * En esta pantalla se piden las fechas de entrada y salida, y manda automáticamente tu nombre como dueño.
+ * 
+ * @author Alex y Hector
+ */
 public class AddGuarderiaController extends AppCompatActivity {
 
     private EditText etNombre, etTipo, etColor, etRaza, etFechaEntrada, etFechaSalida, etDescripcion;
@@ -36,6 +42,9 @@ public class AddGuarderiaController extends AppCompatActivity {
     private Bitmap bitmapFoto = null;
     private static final int PICK_IMAGE_REQUEST = 1;
     private final String URL_ADD = "http://10.0.2.2/Android/add_animal.php";
+    private final String URL_EDIT = "http://10.0.2.2/Android/update_animal.php";
+    private boolean isEditMode = false;
+    private String idMascotaEdit = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +68,35 @@ public class AddGuarderiaController extends AppCompatActivity {
         etFechaSalida.setOnClickListener(v -> showDatePicker(etFechaSalida));
 
         findViewById(R.id.ivBack).setOnClickListener(v -> finish());
+
+        if (getIntent().hasExtra("mascota_json")) {
+            isEditMode = true;
+            btnDarDeAlta.setText("Actualizar");
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject(getIntent().getStringExtra("mascota_json"));
+                idMascotaEdit = obj.optString("IdAnimalGuarderia", "");
+                etNombre.setText(obj.optString("nombre", ""));
+                etTipo.setText(obj.optString("tipo", ""));
+                etRaza.setText(obj.optString("raza", ""));
+                etColor.setText(obj.optString("color", ""));
+                etFechaEntrada.setText(obj.optString("fechaEntrada", ""));
+                etFechaSalida.setText(obj.optString("fechaSalida", ""));
+                etDescripcion.setText(obj.optString("descripcion", ""));
+
+                String imgBase64 = obj.optString("imagen", "");
+                if (!imgBase64.isEmpty() && !imgBase64.equals("null")) {
+                    try {
+                        byte[] decodedString = android.util.Base64.decode(imgBase64, android.util.Base64.DEFAULT);
+                        android.graphics.Bitmap decodedByte = android.graphics.BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                        ivPreview.setImageBitmap(decodedByte);
+                        ivPreview.setVisibility(android.view.View.VISIBLE);
+                        bitmapFoto = decodedByte;
+                    } catch (Exception e) { e.printStackTrace(); }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         ivPreview.setOnClickListener(v -> {
             Intent intent = new Intent();
@@ -115,16 +153,20 @@ public class AddGuarderiaController extends AppCompatActivity {
 
         SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         String telefonoUsuario = pref.getString("telefono", "No disponible");
+        String dniUsuario = pref.getString("dni", "");
+        String nombreUsuario = pref.getString("nombre", "Dueño desconocido");
 
         if (nombre.isEmpty() || tipo.isEmpty() || color.isEmpty() || raza.isEmpty() || fEntrada.isEmpty() || fSalida.isEmpty() || desc.isEmpty()) {
             Toast.makeText(this, "Por favor, rellena todos los campos", Toast.LENGTH_SHORT).show(); return;
         }
-        if (fotoBase64.isEmpty()) {
+        if (fotoBase64.isEmpty() && !isEditMode) {
             Toast.makeText(this, "Selecciona foto de la galería", Toast.LENGTH_SHORT).show(); return;
         }
 
+        String urlTarget = isEditMode ? URL_EDIT : URL_ADD;
+
         RequestQueue queue = Volley.newRequestQueue(this);
-        StringRequest request = new StringRequest(Request.Method.POST, URL_ADD,
+        StringRequest request = new StringRequest(Request.Method.POST, urlTarget,
                 response -> {
                     if (response.trim().equals("success")) {
                         Toast.makeText(AddGuarderiaController.this, "Dada de alta", Toast.LENGTH_SHORT).show();
@@ -144,7 +186,14 @@ public class AddGuarderiaController extends AppCompatActivity {
                 params.put("fechaEntrada", fEntrada);
                 params.put("fechaSalida", fSalida);
                 params.put("imagen", fotoBase64);
-                params.put("telefono", telefonoUsuario); // MANTENEMOS EL TELÉFONO
+                params.put("telefono", telefonoUsuario); 
+                params.put("usuario_dni", dniUsuario);
+                params.put("nombre_dueno", nombreUsuario); 
+
+                if (isEditMode) {
+                    params.put("id", idMascotaEdit);
+                }
+
                 return params;
             }
         };

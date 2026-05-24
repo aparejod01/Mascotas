@@ -32,6 +32,12 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Pantalla que usamos para subir o editar la información de una mascota perdida.
+ * Aquí el usuario rellena los datos y la foto, y se envía todo a nuestra base de datos.
+ * 
+ * @author Alex y Hector
+ */
 public class AddPerdidoController extends AppCompatActivity {
 
     private EditText etNombre, etTipo, etRaza, etColor, etFecha, etDescripcion, etUbicacion;
@@ -39,6 +45,9 @@ public class AddPerdidoController extends AppCompatActivity {
     private Bitmap bitmapFoto = null;
     private static final int PICK_IMAGE_REQUEST = 1;
     private final String URL_ADD = "http://10.0.2.2/Android/add_animal.php";
+    private final String URL_EDIT = "http://10.0.2.2/Android/update_animal.php";
+    private boolean isEditMode = false;
+    private String idMascotaEdit = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +60,7 @@ public class AddPerdidoController extends AppCompatActivity {
         etColor = findViewById(R.id.etColor);
         etFecha = findViewById(R.id.etFecha);
         etDescripcion = findViewById(R.id.etDescripcion);
-        etUbicacion = findViewById(R.id.etUbicacion); // NUEVO
+        etUbicacion = findViewById(R.id.etUbicacion); 
         ivPreview = findViewById(R.id.ivPreview);
         MaterialCardView cvSubirImagen = findViewById(R.id.cvSubirImagen);
         MaterialButton btnPublicar = findViewById(R.id.btnPublicar);
@@ -70,6 +79,35 @@ public class AddPerdidoController extends AppCompatActivity {
                 finish();
             }
         });
+
+        if (getIntent().hasExtra("mascota_json")) {
+            isEditMode = true;
+            btnPublicar.setText("Actualizar");
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject(getIntent().getStringExtra("mascota_json"));
+                idMascotaEdit = obj.optString("idAnimalPerdido", "");
+                etNombre.setText(obj.optString("nombre", ""));
+                etTipo.setText(obj.optString("tipo", ""));
+                etRaza.setText(obj.optString("raza", ""));
+                etColor.setText(obj.optString("color", ""));
+                etFecha.setText(obj.optString("fechaPerdido", ""));
+                etDescripcion.setText(obj.optString("descripcion", ""));
+                etUbicacion.setText(obj.optString("ubicacion", ""));
+
+                String imgBase64 = obj.optString("imagen", "");
+                if (!imgBase64.isEmpty() && !imgBase64.equals("null")) {
+                    try {
+                        byte[] decodedString = android.util.Base64.decode(imgBase64, android.util.Base64.DEFAULT);
+                        android.graphics.Bitmap decodedByte = android.graphics.BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                        ivPreview.setImageBitmap(decodedByte);
+                        ivPreview.setVisibility(android.view.View.VISIBLE);
+                        bitmapFoto = decodedByte; 
+                    } catch (Exception e) { e.printStackTrace(); }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         cvSubirImagen.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -131,31 +169,28 @@ public class AddPerdidoController extends AppCompatActivity {
         String color = etColor.getText().toString().trim();
         String fecha = etFecha.getText().toString().trim();
         String desc = etDescripcion.getText().toString().trim();
-        String ubicacion = etUbicacion.getText().toString().trim(); // NUEVO
+        String ubicacion = etUbicacion.getText().toString().trim(); 
         String fotoBase64 = convertirBitmapAString(bitmapFoto);
 
-        // RECUPERAMOS EL TELÉFONO DE LAS SHAREDPREFERENCES DEL USUARIO LOGUEADO
+
         SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         String telefonoUsuario = pref.getString("telefono", "No disponible");
-
-        // Si el teléfono está vacío, es que no se ha guardado bien al loguear
-        if (telefonoUsuario.isEmpty()) {
-            Toast.makeText(this, "Error: No se encontró tu teléfono. Vuelve a iniciar sesión.", Toast.LENGTH_SHORT).show();
-            return; // Detenemos el envío para no guardar datos incompletos
-        }
+        String dniUsuario = pref.getString("dni", "");
 
         if (nombre.isEmpty() || tipo.isEmpty() || raza.isEmpty() || color.isEmpty() || fecha.isEmpty() || desc.isEmpty() || ubicacion.isEmpty()) {
             Toast.makeText(this, "Por favor, rellena todos los campos", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (fotoBase64.isEmpty()) {
+        if (fotoBase64.isEmpty() && !isEditMode) {
             Toast.makeText(this, "Selecciona una foto de la galería", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        String urlTarget = isEditMode ? URL_EDIT : URL_ADD;
+
         RequestQueue queue = Volley.newRequestQueue(this);
-        StringRequest request = new StringRequest(Request.Method.POST, URL_ADD,
+        StringRequest request = new StringRequest(Request.Method.POST, urlTarget,
                 response -> {
                     if (response.trim().equals("success")) {
                         Toast.makeText(AddPerdidoController.this, "Mascota reportada", Toast.LENGTH_SHORT).show();
@@ -176,8 +211,14 @@ public class AddPerdidoController extends AppCompatActivity {
                 params.put("descripcion", desc);
                 params.put("fechaPerdido", fecha);
                 params.put("imagen", fotoBase64);
-                params.put("ubicacion", ubicacion); // ENVIAMOS UBICACIÓN
-                params.put("telefono", telefonoUsuario); // ENVIAMOS TELÉFONO AUTOMÁTICO
+                params.put("ubicacion", ubicacion); 
+                params.put("telefono", telefonoUsuario); 
+                params.put("usuario_dni", dniUsuario);
+
+                if (isEditMode) {
+                    params.put("id", idMascotaEdit);
+                }
+
                 return params;
             }
         };

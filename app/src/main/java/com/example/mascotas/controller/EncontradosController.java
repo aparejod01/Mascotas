@@ -1,10 +1,15 @@
 package com.example.mascotas.controller;
 
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
-import android.util.Base64;
+import android.util.Log;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +30,15 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Pantalla que muestra la lista de todos los animales que se han encontrado.
+ * Nos descargamos los datos del servidor para poder ver la lista y editar o borrar los nuestros.
+ * 
+ * @author Alex y Hector
+ */
 public class EncontradosController extends AppCompatActivity {
 
     private LinearLayout container;
@@ -44,8 +58,8 @@ public class EncontradosController extends AppCompatActivity {
 
         if (ivBack != null) ivBack.setOnClickListener(v -> finish());
         if (fab != null) fab.setOnClickListener(v -> startActivity(new Intent(this, AddEncontradoController.class)));
-        
-        obtenerMascotas();
+
+
     }
 
     private void obtenerMascotas() {
@@ -74,7 +88,29 @@ public class EncontradosController extends AppCompatActivity {
                 error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show());
 
         request.setTag("get_encontrados");
-        requestQueue.add(request);
+        Volley.newRequestQueue(this).add(request);
+    }
+
+    private void eliminarMascota(String id, String tabla) {
+        String url = "http://10.0.2.2/Android/delete_animal.php";
+        StringRequest request = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    if (response.trim().equals("success")) {
+                        Toast.makeText(this, "Mascota eliminada", Toast.LENGTH_SHORT).show();
+                        obtenerMascotas(); 
+                    } else {
+                        Toast.makeText(this, "Error al eliminar", Toast.LENGTH_SHORT).show();
+                    }
+                }, error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show()) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("tabla", tabla);
+                params.put("id", id);
+                return params;
+            }
+        };
+        Volley.newRequestQueue(this).add(request);
     }
 
     private void agregarItemALista(JSONObject obj) {
@@ -89,31 +125,72 @@ public class EncontradosController extends AppCompatActivity {
             TextView tvColor = item.findViewById(R.id.tvColorEncontrada);
             ImageView ivFoto = item.findViewById(R.id.ivFotoEncontrada);
 
-            // Mapeo exacto de tus campos de animalesencontrados
+
             String nombre = obj.optString("nombre", "");
             String raza = obj.optString("raza", "Desconocida");
-            
+
             tvRaza.setText(nombre.isEmpty() || nombre.equalsIgnoreCase("Desconocido") ? raza : nombre);
             tvDesc.setText(obj.optString("descripcion", "Sin descripción"));
-            tvLoc.setText("📍 Mascota encontrada");
+
+            String ubicacion = obj.optString("ubicacion", "Desconocida");
+            String telefono = obj.optString("telefono", "No disponible");
+
+            tvLoc.setText("📍 " + ubicacion);
             tvFecha.setText("🕒 " + obj.optString("fechaEncontrado", "---"));
-            tvTel.setText("📞 Ver detalle en ficha");
+            tvTel.setText("📞 " + telefono);
             tvColor.setText("🎨 " + obj.optString("color", "---"));
 
-            // DECODIFICACIÓN DE IMAGEN
+
             String imgBase64 = obj.optString("imagen", "");
             if (!imgBase64.isEmpty() && !imgBase64.equals("null") && ivFoto != null) {
                 try {
-                    byte[] decodedString = Base64.decode(imgBase64, Base64.DEFAULT);
+                    byte[] decodedString = android.util.Base64.decode(imgBase64, android.util.Base64.DEFAULT);
                     Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
                     if (bitmap != null) {
                         ivFoto.setImageBitmap(bitmap);
                         ivFoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
                     }
                 } catch (Exception e) {
-                    Log.e("IMG_ERROR", "Error foto");
+                    Log.e("IMG_ERROR", "Error al decodificar imagen");
                 }
             }
+
+            SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+            String dniUsuarioLogueado = pref.getString("dni", "");
+            String dniMascota = obj.optString("dni_usuario", "");
+
+            LinearLayout llAcciones = item.findViewById(R.id.llAcciones);
+            if (llAcciones != null) {
+                if (dniUsuarioLogueado.equals(dniMascota) && !dniMascota.isEmpty()) {
+                    llAcciones.setVisibility(View.VISIBLE);
+
+                    String idMascota = obj.optString("idAnimalEncontrado", "");
+
+                    TextView tvDelete = item.findViewById(R.id.tvDelete);
+                    if (tvDelete != null) {
+                        tvDelete.setOnClickListener(v -> {
+                            new AlertDialog.Builder(this)
+                                .setTitle("Eliminar mascota")
+                                .setMessage("¿Estás seguro de que quieres eliminar esta mascota?")
+                                .setPositiveButton("Sí", (dialog, which) -> eliminarMascota(idMascota, "animalesencontrados"))
+                                .setNegativeButton("No", null)
+                                .show();
+                        });
+                    }
+
+                    TextView tvEdit = item.findViewById(R.id.tvEdit);
+                    if (tvEdit != null) {
+                        tvEdit.setOnClickListener(v -> {
+                            Intent intent = new Intent(this, AddEncontradoController.class);
+                            intent.putExtra("mascota_json", obj.toString());
+                            startActivity(intent);
+                        });
+                    }
+                } else {
+                    llAcciones.setVisibility(View.GONE);
+                }
+            }
+
             container.addView(item);
         } catch (Exception e) {
             Log.e("UI_ERROR", "Error item");

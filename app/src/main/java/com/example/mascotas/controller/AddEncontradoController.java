@@ -30,6 +30,12 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Pantalla para subir un animal que hemos encontrado en la calle.
+ * Toma los datos introducidos por el usuario y los guarda usando PHP.
+ * 
+ * @author Alex y Hector
+ */
 public class AddEncontradoController extends AppCompatActivity {
 
     private EditText etNombre, etTipo, etRaza, etColor, etFecha, etDescripcion, etUbicacion;
@@ -37,6 +43,9 @@ public class AddEncontradoController extends AppCompatActivity {
     private Bitmap bitmapFoto = null;
     private static final int PICK_IMAGE_REQUEST = 1;
     private final String URL_ADD = "http://10.0.2.2/Android/add_animal.php";
+    private final String URL_EDIT = "http://10.0.2.2/Android/update_animal.php";
+    private boolean isEditMode = false;
+    private String idMascotaEdit = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +56,7 @@ public class AddEncontradoController extends AppCompatActivity {
         etColor = findViewById(R.id.etColorEncontrado);
         etFecha = findViewById(R.id.etFechaEncontrado);
         etDescripcion = findViewById(R.id.etDescripcionEncontrado);
-        etUbicacion = findViewById(R.id.etUbicacion); // NUEVO
+        etUbicacion = findViewById(R.id.etUbicacion); 
         ivPreview = findViewById(R.id.ivPreviewEncontrado);
         MaterialCardView cvSubirImagen = findViewById(R.id.cvSubirImagenEncontrado);
         MaterialButton btnPublicar = findViewById(R.id.btnPublicarEncontrado);
@@ -61,6 +70,35 @@ public class AddEncontradoController extends AppCompatActivity {
         });
 
         findViewById(R.id.ivBack).setOnClickListener(v -> finish());
+
+        if (getIntent().hasExtra("mascota_json")) {
+            isEditMode = true;
+            btnPublicar.setText("Actualizar");
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject(getIntent().getStringExtra("mascota_json"));
+                idMascotaEdit = obj.optString("idAnimalEncontrado", "");
+
+                etTipo.setText(obj.optString("tipo", ""));
+                etRaza.setText(obj.optString("raza", ""));
+                etColor.setText(obj.optString("color", ""));
+                etFecha.setText(obj.optString("fechaEncontrado", ""));
+                etDescripcion.setText(obj.optString("descripcion", ""));
+                etUbicacion.setText(obj.optString("ubicacion", ""));
+
+                String imgBase64 = obj.optString("imagen", "");
+                if (!imgBase64.isEmpty() && !imgBase64.equals("null")) {
+                    try {
+                        byte[] decodedString = android.util.Base64.decode(imgBase64, android.util.Base64.DEFAULT);
+                        android.graphics.Bitmap decodedByte = android.graphics.BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                        ivPreview.setImageBitmap(decodedByte);
+                        ivPreview.setVisibility(android.view.View.VISIBLE);
+                        bitmapFoto = decodedByte;
+                    } catch (Exception e) { e.printStackTrace(); }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         cvSubirImagen.setOnClickListener(v -> {
             Intent intent = new Intent();
@@ -111,18 +149,21 @@ public class AddEncontradoController extends AppCompatActivity {
         String color = etColor.getText().toString().trim();
         String fecha = etFecha.getText().toString().trim();
         String desc = etDescripcion.getText().toString().trim();
-        String ubicacion = etUbicacion.getText().toString().trim(); // NUEVO
+        String ubicacion = etUbicacion.getText().toString().trim(); 
         String fotoBase64 = convertirBitmapAString(bitmapFoto);
 
         SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         String telefonoUsuario = pref.getString("telefono", "No disponible");
+        String dniUsuario = pref.getString("dni", "");
 
-        if (fotoBase64.isEmpty()) {
+        if (fotoBase64.isEmpty() && !isEditMode) {
             Toast.makeText(this, "Selecciona una foto de la galería", Toast.LENGTH_SHORT).show(); return;
         }
 
+        String urlTarget = isEditMode ? URL_EDIT : URL_ADD;
+
         RequestQueue queue = Volley.newRequestQueue(this);
-        StringRequest request = new StringRequest(Request.Method.POST, URL_ADD,
+        StringRequest request = new StringRequest(Request.Method.POST, urlTarget,
                 response -> {
                     if (response.trim().equals("success")) {
                         Toast.makeText(AddEncontradoController.this, "Mascota encontrada reportada", Toast.LENGTH_SHORT).show();
@@ -142,6 +183,12 @@ public class AddEncontradoController extends AppCompatActivity {
                 params.put("imagen", fotoBase64);
                 params.put("ubicacion", ubicacion);
                 params.put("telefono", telefonoUsuario);
+                params.put("usuario_dni", dniUsuario);
+
+                if (isEditMode) {
+                    params.put("id", idMascotaEdit);
+                }
+
                 return params;
             }
         };
