@@ -1,50 +1,41 @@
 package com.example.mascotas.controller;
 
+import android.app.DatePickerDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.mascotas.R;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
 public class AddGuarderiaController extends AppCompatActivity {
 
-    private EditText etNombre, etTipo, etColor, etRaza, etFechaEntrada, etFechaSalida, etDescripcion, etNombreDueno;
+    private EditText etNombre, etTipo, etColor, etRaza, etFechaEntrada, etFechaSalida, etDescripcion;
     private ImageView ivPreview;
-    private String encodedImage = "";
+    private Bitmap bitmapFoto = null;
+    private static final int PICK_IMAGE_REQUEST = 1;
     private final String URL_ADD = "http://10.0.2.2/Android/add_animal.php";
-
-    private final ActivityResultLauncher<String> galleryLauncher = registerForActivityResult(
-            new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri != null) {
-                    try {
-                        ImageDecoder.Source source = ImageDecoder.createSource(getContentResolver(), uri);
-                        Bitmap bitmap = ImageDecoder.decodeBitmap(source);
-                        ivPreview.setImageBitmap(bitmap);
-                        encodedImage = encodeImage(bitmap);
-                    } catch (IOException e) { e.printStackTrace(); }
-                }
-            }
-    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,27 +49,58 @@ public class AddGuarderiaController extends AppCompatActivity {
         etFechaEntrada = findViewById(R.id.etFechaEntrada);
         etFechaSalida = findViewById(R.id.etFechaSalida);
         etDescripcion = findViewById(R.id.etDescripcionAlta);
-        etNombreDueno = findViewById(R.id.etNombreDueno);
         ivPreview = findViewById(R.id.ivPreviewAlta);
-        MaterialCardView cvSubirImagen = findViewById(R.id.cvSubirImagenAlta);
         MaterialButton btnDarDeAlta = findViewById(R.id.btnDarDeAlta);
 
+        etFechaEntrada.setFocusable(false);
+        etFechaEntrada.setOnClickListener(v -> showDatePicker(etFechaEntrada));
+
+        etFechaSalida.setFocusable(false);
+        etFechaSalida.setOnClickListener(v -> showDatePicker(etFechaSalida));
+
         findViewById(R.id.ivBack).setOnClickListener(v -> finish());
-        
-        // El layout activity_dar_alta_guarderia no tiene id para el CardView de imagen por defecto, 
-        // lo buscamos por su contenedor o el ImageView
-        ivPreview.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+
+        ivPreview.setOnClickListener(v -> {
+            Intent intent = new Intent();
+            intent.setType("image/*");
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+            startActivityForResult(Intent.createChooser(intent, "Selecciona foto"), PICK_IMAGE_REQUEST);
+        });
 
         btnDarDeAlta.setOnClickListener(v -> agregarMascota());
     }
 
-    private String encodeImage(Bitmap bitmap) {
-        int width = 500;
-        int height = (int) (bitmap.getHeight() * (500.0 / bitmap.getWidth()));
-        Bitmap scaled = Bitmap.createScaledBitmap(bitmap, width, height, true);
+    private void showDatePicker(EditText campoDestino) {
+        Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                (view, year1, month1, day1) -> {
+                    String fecha = year1 + "-" + (month1 + 1) + "-" + day1;
+                    campoDestino.setText(fecha);
+                }, year, month, day);
+        datePickerDialog.show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri filePath = data.getData();
+            try {
+                bitmapFoto = MediaStore.Images.Media.getBitmap(getContentResolver(), filePath);
+                ivPreview.setImageBitmap(bitmapFoto);
+            } catch (IOException e) { e.printStackTrace(); }
+        }
+    }
+
+    private String convertirBitmapAString(Bitmap bitmap) {
+        if (bitmap == null) return "";
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-        return Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+        return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
     }
 
     private void agregarMascota() {
@@ -89,35 +111,43 @@ public class AddGuarderiaController extends AppCompatActivity {
         String fEntrada = etFechaEntrada.getText().toString().trim();
         String fSalida = etFechaSalida.getText().toString().trim();
         String desc = etDescripcion.getText().toString().trim();
+        String fotoBase64 = convertirBitmapAString(bitmapFoto);
 
-        if (nombre.isEmpty() || tipo.isEmpty() || color.isEmpty() || raza.isEmpty() || fEntrada.isEmpty() || fSalida.isEmpty()) {
-            Toast.makeText(this, "Rellena los campos obligatorios", Toast.LENGTH_SHORT).show();
-            return;
+        SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        String telefonoUsuario = pref.getString("telefono", "No disponible");
+
+        if (nombre.isEmpty() || tipo.isEmpty() || color.isEmpty() || raza.isEmpty() || fEntrada.isEmpty() || fSalida.isEmpty() || desc.isEmpty()) {
+            Toast.makeText(this, "Por favor, rellena todos los campos", Toast.LENGTH_SHORT).show(); return;
+        }
+        if (fotoBase64.isEmpty()) {
+            Toast.makeText(this, "Selecciona foto de la galería", Toast.LENGTH_SHORT).show(); return;
         }
 
+        RequestQueue queue = Volley.newRequestQueue(this);
         StringRequest request = new StringRequest(Request.Method.POST, URL_ADD,
                 response -> {
                     if (response.trim().equals("success")) {
-                        Toast.makeText(this, "Mascota en guardería dada de alta", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(AddGuarderiaController.this, "Dada de alta", Toast.LENGTH_SHORT).show();
                         finish();
-                    } else { Toast.makeText(this, "Error: " + response, Toast.LENGTH_SHORT).show(); }
+                    } else { Toast.makeText(AddGuarderiaController.this, "Error: " + response, Toast.LENGTH_SHORT).show(); }
                 },
-                error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show()) {
+                error -> Toast.makeText(AddGuarderiaController.this, "Error de red", Toast.LENGTH_SHORT).show()) {
             @Override
             protected Map<String, String> getParams() {
                 Map<String, String> params = new HashMap<>();
                 params.put("tabla", "animalesguarderia");
                 params.put("nombre", nombre);
                 params.put("tipo", tipo);
-                params.put("raza", raza); // En PHP se mapea a 'razo'
+                params.put("raza", raza);
                 params.put("color", color);
                 params.put("descripcion", desc);
                 params.put("fechaEntrada", fEntrada);
                 params.put("fechaSalida", fSalida);
-                params.put("imagen", encodedImage);
+                params.put("imagen", fotoBase64);
+                params.put("telefono", telefonoUsuario); // MANTENEMOS EL TELÉFONO
                 return params;
             }
         };
-        Volley.newRequestQueue(this).add(request);
+        queue.add(request);
     }
 }

@@ -25,17 +25,11 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.HashSet;
-import java.util.Set;
-
 public class EncontradosController extends AppCompatActivity {
 
     private LinearLayout container;
     private RequestQueue requestQueue;
     private final String URL_GET = "http://10.0.2.2/Android/get_animales.php?tabla=animalesencontrados";
-    private final String TAG_VOLLEY = "get_encontrados_tag";
-    // Set para evitar duplicados si el servidor responde dos veces o tiene datos repetidos
-    private final Set<String> idsCargados = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,62 +40,40 @@ public class EncontradosController extends AppCompatActivity {
         FloatingActionButton fab = findViewById(R.id.fabAgregarEncontrada);
         ImageView ivBack = findViewById(R.id.ivBack);
 
-        // Inicializamos Volley
         requestQueue = Volley.newRequestQueue(this);
 
         if (ivBack != null) ivBack.setOnClickListener(v -> finish());
+        if (fab != null) fab.setOnClickListener(v -> startActivity(new Intent(this, AddEncontradoController.class)));
         
-        if (fab != null) {
-            fab.setOnClickListener(v -> {
-                Intent intent = new Intent(EncontradosController.this, AddEncontradoController.class);
-                startActivity(intent);
-            });
-        }
-        
-        // Dejamos que onResume gestione la carga para evitar duplicados al arrancar
+        obtenerMascotas();
     }
 
     private void obtenerMascotas() {
         if (container == null) return;
-        
-        // Cancelamos cualquier petición idéntica en curso
-        requestQueue.cancelAll(TAG_VOLLEY);
+        requestQueue.cancelAll("get_encontrados");
 
         StringRequest request = new StringRequest(Request.Method.GET, URL_GET,
                 response -> {
-                    if (isFinishing()) return;
                     try {
+                        container.removeAllViews();
                         String json = response.trim();
                         if (json.startsWith("[")) {
-                            // LIMPIEZA TOTAL: Vaciamos la lista y el set de IDs antes de procesar la respuesta
-                            container.removeAllViews();
-                            idsCargados.clear();
-                            
                             JSONArray array = new JSONArray(json);
+                            if (array.length() == 0) {
+                                Toast.makeText(this, "No hay mascotas encontradas", Toast.LENGTH_SHORT).show();
+                            }
                             for (int i = 0; i < array.length(); i++) {
                                 JSONObject obj = array.getJSONObject(i);
-                                
-                                // Usamos el ID de la tabla (idAnimalesEncontrado) para garantizar unicidad
-                                String id = obj.optString("idAnimalesEncontrado", String.valueOf(i));
-                                
-                                if (!idsCargados.contains(id)) {
-                                    idsCargados.add(id);
-                                    agregarItemALista(obj);
-                                }
+                                agregarItemALista(obj);
                             }
                         }
                     } catch (Exception e) {
-                        Log.e("JSON_ERROR", "Fallo al procesar: " + e.getMessage());
+                        Log.e("JSON_ERROR", "Error: " + e.getMessage());
                     }
                 },
-                error -> {
-                    if (!isFinishing()) {
-                        Toast.makeText(this, "Error al conectar con la base de datos", Toast.LENGTH_SHORT).show();
-                    }
-                });
+                error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show());
 
-        request.setTag(TAG_VOLLEY);
-        request.setShouldCache(false); // Desactivamos caché para evitar datos viejos duplicados
+        request.setTag("get_encontrados");
         requestQueue.add(request);
     }
 
@@ -117,56 +89,40 @@ public class EncontradosController extends AppCompatActivity {
             TextView tvColor = item.findViewById(R.id.tvColorEncontrada);
             ImageView ivFoto = item.findViewById(R.id.ivFotoEncontrada);
 
-            // Mapeamos los datos de la tabla animalesencontrados
+            // Mapeo exacto de tus campos de animalesencontrados
             String nombre = obj.optString("nombre", "");
             String raza = obj.optString("raza", "Desconocida");
             
-            if (tvRaza != null) {
-                tvRaza.setText(nombre.isEmpty() || nombre.equalsIgnoreCase("Desconocido") ? raza : nombre);
-            }
-            
-            if (tvDesc != null) tvDesc.setText(obj.optString("descripcion", ""));
-            if (tvLoc != null) tvLoc.setText("📍 Mascota encontrada");
-            if (tvFecha != null) tvFecha.setText("🕒 " + obj.optString("fechaEncontrado", "---"));
-            if (tvTel != null) tvTel.setText("📞 Disponible en ficha");
-            if (tvColor != null) tvColor.setText("🎨 " + obj.optString("color", "---"));
+            tvRaza.setText(nombre.isEmpty() || nombre.equalsIgnoreCase("Desconocido") ? raza : nombre);
+            tvDesc.setText(obj.optString("descripcion", "Sin descripción"));
+            tvLoc.setText("📍 Mascota encontrada");
+            tvFecha.setText("🕒 " + obj.optString("fechaEncontrado", "---"));
+            tvTel.setText("📞 Ver detalle en ficha");
+            tvColor.setText("🎨 " + obj.optString("color", "---"));
 
-            // Decodificación segura de imagen Base64
+            // DECODIFICACIÓN DE IMAGEN
             String imgBase64 = obj.optString("imagen", "");
             if (!imgBase64.isEmpty() && !imgBase64.equals("null") && ivFoto != null) {
                 try {
                     byte[] decodedString = Base64.decode(imgBase64, Base64.DEFAULT);
-                    BitmapFactory.Options options = new BitmapFactory.Options();
-                    options.inSampleSize = 2; // Optimización de memoria
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length, options);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
                     if (bitmap != null) {
                         ivFoto.setImageBitmap(bitmap);
                         ivFoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
                     }
-                } catch (Throwable t) {
-                    Log.e("IMAGE_ERROR", "No se pudo cargar una imagen");
+                } catch (Exception e) {
+                    Log.e("IMG_ERROR", "Error foto");
                 }
             }
-
             container.addView(item);
         } catch (Exception e) {
-            Log.e("UI_ERROR", "Error al crear elemento de la lista");
+            Log.e("UI_ERROR", "Error item");
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Cargamos los datos siempre que la pantalla aparezca. 
         obtenerMascotas();
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // Cancelamos peticiones pendientes al salir para evitar fugas de memoria
-        if (requestQueue != null) {
-            requestQueue.cancelAll(TAG_VOLLEY);
-        }
     }
 }

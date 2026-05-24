@@ -16,7 +16,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
-import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.mascotas.R;
@@ -28,7 +27,6 @@ import org.json.JSONObject;
 public class PerdidosController extends AppCompatActivity {
 
     private LinearLayout container;
-    private RequestQueue requestQueue;
     private final String URL_GET = "http://10.0.2.2/Android/get_animales.php?tabla=animalesperdidos";
 
     @Override
@@ -40,45 +38,37 @@ public class PerdidosController extends AppCompatActivity {
         FloatingActionButton fab = findViewById(R.id.fabAgregarMascota);
         ImageView ivBack = findViewById(R.id.ivBack);
 
-        requestQueue = Volley.newRequestQueue(this);
-
         if (ivBack != null) ivBack.setOnClickListener(v -> finish());
-        if (fab != null) {
-            fab.setOnClickListener(v -> startActivity(new Intent(this, AddPerdidoController.class)));
-        }
+        if (fab != null) fab.setOnClickListener(v -> startActivity(new Intent(this, AddPerdidoController.class)));
 
-        // Llamamos a obtenerMascotas SOLO aquí
         obtenerMascotas();
     }
 
     private void obtenerMascotas() {
         if (container == null) return;
-        
-        requestQueue.cancelAll("list_req"); // Evita peticiones duplicadas
+        container.removeAllViews();
 
         StringRequest request = new StringRequest(Request.Method.GET, URL_GET,
                 response -> {
                     try {
-                        container.removeAllViews();
                         String json = response.trim();
                         if (json.startsWith("[")) {
                             JSONArray array = new JSONArray(json);
                             for (int i = 0; i < array.length(); i++) {
                                 JSONObject obj = array.getJSONObject(i);
-                                agregarCardMascota(obj);
+                                agregarItemLista(obj);
                             }
                         }
                     } catch (Exception e) {
-                        Log.e("API_ERROR", "Respuesta no JSON: " + response);
+                        Log.e("JSON_ERROR", "Error: " + e.getMessage());
                     }
                 },
-                error -> Toast.makeText(this, "Error de conexión", Toast.LENGTH_SHORT).show());
+                error -> Toast.makeText(this, "Error al conectar con el servidor", Toast.LENGTH_SHORT).show());
 
-        request.setTag("list_req");
-        requestQueue.add(request);
+        Volley.newRequestQueue(this).add(request);
     }
 
-    private void agregarCardMascota(JSONObject obj) {
+    private void agregarItemLista(JSONObject obj) {
         try {
             View item = LayoutInflater.from(this).inflate(R.layout.item_mascota_perdidas, container, false);
 
@@ -89,34 +79,37 @@ public class PerdidosController extends AppCompatActivity {
             TextView tvColor = item.findViewById(R.id.tvColor);
             ImageView ivFoto = item.findViewById(R.id.ivFotoMascota);
 
-            tvNombre.setText(obj.optString("nombre", "Sin nombre"));
+            // USANDO TUS CAMPOS EXACTOS
+            tvNombre.setText(obj.optString("nombre", "Mascota"));
             tvRaza.setText(obj.optString("raza", "---"));
             tvDesc.setText(obj.optString("descripcion", ""));
             tvFecha.setText("🕒 " + obj.optString("fechaPerdido", "---"));
             tvColor.setText("🎨 " + obj.optString("color", "---"));
 
-            // Decodificar imagen Base64 con seguridad de memoria
+            // DECODIFICAR IMAGEN BASE64
             String imgBase64 = obj.optString("imagen", "");
             if (!imgBase64.isEmpty() && !imgBase64.equals("null") && ivFoto != null) {
                 try {
                     byte[] decodedString = Base64.decode(imgBase64, Base64.DEFAULT);
-                    BitmapFactory.Options options = new BitmapFactory.Options();
-                    options.inSampleSize = 2; // Reduce el tamaño para no saturar la RAM
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length, options);
-                    if (bitmap != null) ivFoto.setImageBitmap(bitmap);
-                } catch (Throwable t) { Log.e("IMG_ERROR", "No se pudo cargar imagen"); }
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                    if (bitmap != null) {
+                        ivFoto.setImageBitmap(bitmap);
+                        ivFoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    }
+                } catch (Exception e) {
+                    Log.e("IMG_ERROR", "Error al decodificar imagen");
+                }
             }
 
             container.addView(item);
-        } catch (Exception e) { Log.e("UI_ERROR", "Error inflar item"); }
+        } catch (Exception e) {
+            Log.e("UI_ERROR", "Error al añadir item");
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Solo refrescamos si ya se inició la actividad antes
-        if (container != null && container.getChildCount() > 0) {
-            obtenerMascotas();
-        }
+        obtenerMascotas();
     }
 }

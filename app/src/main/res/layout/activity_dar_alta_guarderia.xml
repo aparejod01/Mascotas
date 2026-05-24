@@ -29,7 +29,7 @@
             android:id="@+id/tvHeaderTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Dar de Alta Mascota en Guardería"
+            android:text="Alta en Guardería"
             android:textColor="#000000"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -249,13 +249,15 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:orientation="vertical">
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginBottom="8dp"
                                 android:text="Fecha Salida"
                                 android:textColor="#333333"
-                                android:textSize="14sp"
-                                android:layout_marginBottom="8dp" />
+                                android:textSize="14sp" />
+
                             <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="50dp"
@@ -277,10 +279,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Descripción"
+                        android:text="Descripción / Notas"
                         android:textColor="#333333"
                         android:textSize="14sp"
                         android:layout_marginBottom="8dp" />
+
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="100dp"
@@ -310,7 +313,7 @@
                         android:id="@+id/cvSubirImagenAlta"
                         android:layout_width="match_parent"
                         android:layout_height="100dp"
-                        android:layout_marginBottom="24dp"
+                        android:layout_marginBottom="32dp"
                         app:cardBackgroundColor="#F4F9EC"
                         app:cardCornerRadius="12dp"
                         app:cardElevation="2dp"
@@ -322,36 +325,6 @@
                             android:scaleType="centerCrop"
                             android:src="@android:drawable/ic_menu_gallery"
                             app:tint="#C5E1A5" />
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="2dp"
-                        android:layout_marginBottom="24dp"
-                        android:background="@android:color/darker_gray" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Nombre Dueño"
-                        android:textColor="#333333"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="8dp" />
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:layout_marginBottom="32dp"
-                        app:cardBackgroundColor="#F4F9EC"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
-                        app:strokeWidth="0dp">
-                        <EditText
-                            android:id="@+id/etNombreDueno"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="@null"
-                            android:paddingHorizontal="16dp"
-                            android:inputType="textPersonName" />
                     </com.google.android.material.card.MaterialCardView>
 
                     <com.google.android.material.button.MaterialButton
@@ -369,8 +342,6 @@
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

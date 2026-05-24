@@ -73,30 +73,6 @@
                     android:paddingHorizontal="24dp"
                     android:paddingVertical="32dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Nombre (si lo tiene):"
-                        android:textColor="#333333"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="8dp" />
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:layout_marginBottom="20dp"
-                        app:cardBackgroundColor="#F0E9FF"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
-                        app:strokeWidth="0dp">
-                        <EditText
-                            android:id="@+id/etNombreEncontrado"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="@null"
-                            android:paddingHorizontal="16dp"
-                            android:inputType="text" />
-                    </com.google.android.material.card.MaterialCardView>
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -229,7 +205,31 @@
                                     android:inputType="date" />
                             </com.google.android.material.card.MaterialCardView>
                         </LinearLayout>
+
                     </LinearLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Ubicación (Dónde la encontraste)"
+                        android:textColor="#333333"
+                        android:textSize="14sp" />
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginBottom="20dp"
+                        app:cardBackgroundColor="#F0E9FF"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+                        <EditText
+                            android:id="@+id/etUbicacion"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@null"
+                            android:paddingHorizontal="16dp"
+                            android:inputType="textPostalAddress" />
+                    </com.google.android.material.card.MaterialCardView>
 
                     <TextView
                         android:layout_width="wrap_content"

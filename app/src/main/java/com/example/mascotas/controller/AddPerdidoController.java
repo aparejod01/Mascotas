@@ -1,19 +1,25 @@
 package com.example.mascotas.controller;
 
+import android.app.DatePickerDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.mascotas.R;
@@ -21,29 +27,18 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
 public class AddPerdidoController extends AppCompatActivity {
 
-    private EditText etNombre, etTipo, etRaza, etColor, etFecha, etDescripcion;
+    private EditText etNombre, etTipo, etRaza, etColor, etFecha, etDescripcion, etUbicacion;
     private ImageView ivPreview;
-    private String encodedImage = "";
+    private Bitmap bitmapFoto = null;
+    private static final int PICK_IMAGE_REQUEST = 1;
     private final String URL_ADD = "http://10.0.2.2/Android/add_animal.php";
-
-    private final ActivityResultLauncher<String> galleryLauncher = registerForActivityResult(
-            new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri != null) {
-                    try {
-                        ImageDecoder.Source source = ImageDecoder.createSource(getContentResolver(), uri);
-                        Bitmap bitmap = ImageDecoder.decodeBitmap(source);
-                        ivPreview.setImageBitmap(bitmap);
-                        encodedImage = encodeImage(bitmap);
-                    } catch (Exception e) { e.printStackTrace(); }
-                }
-            }
-    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,22 +51,77 @@ public class AddPerdidoController extends AppCompatActivity {
         etColor = findViewById(R.id.etColor);
         etFecha = findViewById(R.id.etFecha);
         etDescripcion = findViewById(R.id.etDescripcion);
+        etUbicacion = findViewById(R.id.etUbicacion); // NUEVO
         ivPreview = findViewById(R.id.ivPreview);
         MaterialCardView cvSubirImagen = findViewById(R.id.cvSubirImagen);
         MaterialButton btnPublicar = findViewById(R.id.btnPublicar);
 
-        findViewById(R.id.ivBack).setOnClickListener(v -> finish());
-        cvSubirImagen.setOnClickListener(v -> galleryLauncher.launch("image/*"));
-        btnPublicar.setOnClickListener(v -> agregarMascota());
+        etFecha.setFocusable(false);
+        etFecha.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showDatePicker(etFecha);
+            }
+        });
+
+        findViewById(R.id.ivBack).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+
+        cvSubirImagen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_GET_CONTENT);
+                startActivityForResult(Intent.createChooser(intent, "Selecciona una foto"), PICK_IMAGE_REQUEST);
+            }
+        });
+
+        btnPublicar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                agregarMascota();
+            }
+        });
     }
 
-    private String encodeImage(Bitmap bitmap) {
-        int previewWidth = 500;
-        int previewHeight = bitmap.getHeight() * previewWidth / bitmap.getWidth();
-        Bitmap scaled = Bitmap.createScaledBitmap(bitmap, previewWidth, previewHeight, true);
+    private void showDatePicker(EditText campoDestino) {
+        Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                (view, year1, month1, day1) -> {
+                    String fecha = year1 + "-" + (month1 + 1) + "-" + day1;
+                    campoDestino.setText(fecha);
+                }, year, month, day);
+        datePickerDialog.show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri filePath = data.getData();
+            try {
+                bitmapFoto = MediaStore.Images.Media.getBitmap(getContentResolver(), filePath);
+                ivPreview.setImageBitmap(bitmapFoto);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private String convertirBitmapAString(Bitmap bitmap) {
+        if (bitmap == null) return "";
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-        return Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+        return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
     }
 
     private void agregarMascota() {
@@ -81,20 +131,40 @@ public class AddPerdidoController extends AppCompatActivity {
         String color = etColor.getText().toString().trim();
         String fecha = etFecha.getText().toString().trim();
         String desc = etDescripcion.getText().toString().trim();
+        String ubicacion = etUbicacion.getText().toString().trim(); // NUEVO
+        String fotoBase64 = convertirBitmapAString(bitmapFoto);
 
-        if (nombre.isEmpty() || tipo.isEmpty() || raza.isEmpty() || color.isEmpty() || fecha.isEmpty()) {
-            Toast.makeText(this, "Rellena los campos obligatorios", Toast.LENGTH_SHORT).show();
+        // RECUPERAMOS EL TELÉFONO DE LAS SHAREDPREFERENCES DEL USUARIO LOGUEADO
+        SharedPreferences pref = getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        String telefonoUsuario = pref.getString("telefono", "No disponible");
+
+        // Si el teléfono está vacío, es que no se ha guardado bien al loguear
+        if (telefonoUsuario.isEmpty()) {
+            Toast.makeText(this, "Error: No se encontró tu teléfono. Vuelve a iniciar sesión.", Toast.LENGTH_SHORT).show();
+            return; // Detenemos el envío para no guardar datos incompletos
+        }
+
+        if (nombre.isEmpty() || tipo.isEmpty() || raza.isEmpty() || color.isEmpty() || fecha.isEmpty() || desc.isEmpty() || ubicacion.isEmpty()) {
+            Toast.makeText(this, "Por favor, rellena todos los campos", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        if (fotoBase64.isEmpty()) {
+            Toast.makeText(this, "Selecciona una foto de la galería", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        RequestQueue queue = Volley.newRequestQueue(this);
         StringRequest request = new StringRequest(Request.Method.POST, URL_ADD,
                 response -> {
                     if (response.trim().equals("success")) {
-                        Toast.makeText(this, "Mascota reportada con éxito", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(AddPerdidoController.this, "Mascota reportada", Toast.LENGTH_SHORT).show();
                         finish();
-                    } else { Toast.makeText(this, "Error: " + response, Toast.LENGTH_SHORT).show(); }
+                    } else {
+                        Toast.makeText(AddPerdidoController.this, "Error: " + response, Toast.LENGTH_SHORT).show();
+                    }
                 },
-                error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show()) {
+                error -> Toast.makeText(AddPerdidoController.this, "Error de red", Toast.LENGTH_SHORT).show()) {
             @Override
             protected Map<String, String> getParams() {
                 Map<String, String> params = new HashMap<>();
@@ -105,10 +175,12 @@ public class AddPerdidoController extends AppCompatActivity {
                 params.put("color", color);
                 params.put("descripcion", desc);
                 params.put("fechaPerdido", fecha);
-                params.put("imagen", encodedImage);
+                params.put("imagen", fotoBase64);
+                params.put("ubicacion", ubicacion); // ENVIAMOS UBICACIÓN
+                params.put("telefono", telefonoUsuario); // ENVIAMOS TELÉFONO AUTOMÁTICO
                 return params;
             }
         };
-        Volley.newRequestQueue(this).add(request);
+        queue.add(request);
     }
 }
