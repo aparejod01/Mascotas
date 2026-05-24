@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="24dp"
+    android:layout_marginBottom="16dp"
+    app:cardBackgroundColor="#FFFFFF"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="6dp"
+    app:strokeWidth="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <ImageView
+            android:id="@+id/ivFotoEncontrada"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:scaleType="centerCrop"
+            android:background="#E0E0E0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvRazaPrincipal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:text="Pastor Alemán"
+            android:textColor="#000000"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/ivFotoEncontrada"
+            app:layout_constraintTop_toTopOf="@id/ivFotoEncontrada" />
+
+        <TextView
+            android:id="@+id/tvDescEncontrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Collar negro, y cicatriz en la oreja"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/ivFotoEncontrada" />
+
+        <TextView
+            android:id="@+id/tvLocEncontrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="📍 Calle Nueva"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/tvDescEncontrada" />
+
+        <TextView
+            android:id="@+id/tvFechaEncontrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="🕒 01/05/2026"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/tvLocEncontrada" />
+
+        <TextView
+            android:id="@+id/tvTelEncontrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="📞 677 87 42 31"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/tvFechaEncontrada" />
+
+        <TextView
+            android:id="@+id/tvColorEncontrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="🎨 Marrón y negro"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/tvTelEncontrada" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
